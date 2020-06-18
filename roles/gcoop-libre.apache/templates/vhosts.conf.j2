@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+{{ apache_global_vhost_settings }}
+
+LogFormat "{{ apache_global_vhost_access_log_format_combined }}" combined
+LogFormat "{{ apache_global_vhost_access_log_format_proxy }}" proxy
+
+{% if apache_global_vhost_aliases %}
+<IfModule mod_alias.c>
+{% for alias in apache_global_vhost_aliases %}
+  Alias "{{ alias.name }}" "{{ alias.dest }}"
+{% endfor %}
+</IfModule>
+{% endif %}
+
+{% if apache_global_vhost_custom_errors %}
+{% for custom_error in apache_global_vhost_custom_errors %}
+ErrorDocument "{{ custom_error.code }}" "{{ custom_error.action }}"
+{% endfor %}
+{% endif %}
+
+# HTTPoxy
+<IfModule mod_headers.c>
+  RequestHeader unset Proxy early
+</IfModule>
+
+{% if 'ssl.load' in apache_mods_enabled %}
+Listen {{ apache_listen_port_ssl }}
+{% if apache_vhosts_version == "2.2" %}
+NameVirtualHost {{ apache_listen_ip }}:{{ apache_listen_port_ssl }}
+{% endif %}
+
+{% if apache_vhosts_version == "2.4" and 'socache_shmcb.load' in apache_mods_enabled %}
+<IfModule mod_ssl.c>
+  SSLStaplingCache "shmcb:logs/stapling-cache(150000)"
+</IfModule>
+{% endif %}
+{% endif %}
+
+{% if ansible_os_family in [ 'RedHat', 'Solaris', 'Suse' ] %}
+Include sites-enabled/
+{% endif %}
